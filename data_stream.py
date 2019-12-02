@@ -9,7 +9,7 @@ schema = StructType([StructField("crime_id", StringType(), True),
                      StructField("original_crime_type_name", StringType(), True),
                      StructField("report_date", StringType(), True),
                      StructField("call_date", StringType(), True),
-                     StructFIeld("offense_date", StringType(), True),
+                     StructField("offense_date", StringType(), True),
                      StructField("call_time", StringType(), True),
                      StructField("call_date_time", StringType(), True),
                      StructField("disposition", StringType(), True),
@@ -29,10 +29,11 @@ def run_spark_job(spark):
     df = spark \
         .readStream \
         .format("kafka") \
-        .option("kafka-bootstrap.servers", "localhost:9092") \
-        .option("subscribe", "service_calls") \
+        .option("kafka.bootstrap.servers", "localhost:9092") \
+        .option("subscribe", "calls") \
         .option("startingOffsets", "earliest") \
-        .option("maxOffsetsPerTrigger", 100)
+        .option("maxRatePerPartition", 100)
+    .option("maxOffsetPerTrigger", 10)
     .load()
 
 
@@ -41,35 +42,44 @@ df.printSchema()
 
 # TODO extract the correct column from the kafka input resources
 # Take only value and convert it to String
-kafka_df = df.selectExpr("CAST(value AS STRING)")
+kafka_df = df.selectExpr("CAST(timestamp AS STRING)", "CAST(value AS STRING)")
 
 service_table = kafka_df \
-    .select(psf.from_json(psf.col('value'), schema).alias("DF")) \
-    .select("DF.*")
+    .select(psf.from_json(psf.col('value'), schema).alias("SERVICE")) \
+    .select("SERVICE.*")
+
+query = service_table \
+    .writeStream \
+    .outputMode("append") \
+    .format("console") \
+    .start()
 
 # TODO select original_crime_type_name and disposition
-distinct_table = service_table \
-    .select(psf.col("crime_id"),
-            psf.col("original_crime_type_name"),
-            psf.to_timestamp(psf.col("call_date_time")),
-            psf.col("address"),
-            psf.col("disposition")
-            )
+#     distinct_table = service_table \
+#                      .select(#psf.col("crime_id"),
+#                              psf.col("original_crime_type_name"),
+# #                              psf.to_timestamp(psf.col("call_date_time")).alias("call_date_time"),
+# #                              psf.col("address"),
+#                              psf.col("disposition")
+#                             )
 
 # count the number of original crime type
-agg_df = distinct_table
-.withWaterMark("call_date_time", "60 minutes") \
-    .groupBy(psf.window(distinct_table.call_date_time, "10 minutes", "5 minutes"),
-             distinct_table.original_crime_type_name
-             ).count()
+#     agg_df = distinct_table \
+#              .withWatermark("call_date_time", "60 minutes") \
+#              .groupBy(psf.window(distinct_table.call_date_time, "10 minutes", "5 minutes"),
+#                                  distinct_table.original_crime_type_name
+#                      )
+#     agg_df = distinct_table
+
 
 # TODO Q1. Submit a screen shot of a batch ingestion of the aggregation
 # TODO write output stream
-query = agg_df \
-    .withStream \
-    .outputMode("Complete") \
-    .format("console") \
-    .start()
+#     query = agg_df.count() \
+#             .writeStream \
+#             .outputMode("complete") \
+#             .format("console") \
+#             .start()
+
 
 # TODO attach a ProgressReporter
 query.awaitTermination()
@@ -85,7 +95,13 @@ radio_code_df = spark.read.json(radio_code_json_filepath)
 radio_code_df = radio_code_df.withColumnRenamed("disposition_code", "disposition")
 
 # TODO join on disposition column
-join_query = agg_df.join(radio_code_df, "disposition")
+join_query = agg_df \
+    .join(radio_code_df, "disposition") \
+    .writeStream \
+    .format("console") \
+    .queryName("join") \
+    .outputMode("complete") \
+    .start()
 
 join_query.awaitTermination()
 
