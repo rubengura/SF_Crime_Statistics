@@ -8,9 +8,10 @@ def run_kafka_server():
     # TODO fill in blanks
     producer = producer_server.ProducerServer(
         input_file=input_file,
-        topic="test",
+        topic="calls",
         bootstrap_servers="localhost:9092",
-        api_version=(0,10,1)
+        #         consumer_group="0",
+        #         api_version=(0,10,1)
     )
 
     return producer
