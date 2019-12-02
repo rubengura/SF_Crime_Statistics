@@ -23,7 +23,7 @@ In order to run the application you will need to start:
 
 2. Kafka server:
 
-`/usr/bin kafka-server-start config/properties`
+`/usr/bin kafka-server-start config/server.properties`
 
 3. Kafka consumer:
 
