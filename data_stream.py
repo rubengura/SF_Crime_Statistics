@@ -32,9 +32,9 @@ def run_spark_job(spark):
         .option("kafka.bootstrap.servers", "localhost:9092") \
         .option("subscribe", "calls") \
         .option("startingOffsets", "earliest") \
-        .option("maxRatePerPartition", 100)
-    .option("maxOffsetPerTrigger", 10)
-    .load()
+        .option("maxRatePerPartition", 100) \
+        .option("maxOffsetPerTrigger", 10) \
+        .load()
 
 
 # Show schema for the incoming resources for checks
