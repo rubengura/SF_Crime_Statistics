@@ -33,7 +33,7 @@ def run_spark_job(spark):
         .option("subscribe", "calls") \
         .option("startingOffsets", "earliest") \
         .option("maxRatePerPartition", 100) \
-        .option("maxOffsetPerTrigger", 10) \
+        .option("maxOffsetPerTrigger", 100) \
         .load()
 
     # Show schema for the incoming resources for checks
@@ -41,26 +41,29 @@ def run_spark_job(spark):
 
     # TODO extract the correct column from the kafka input resources
     # Take only value and convert it to String
-    kafka_df = df.selectExpr("CAST(timestamp AS STRING)", "CAST(value AS STRING)")
+    #     kafka_df = df.selectExpr("CAST(timestamp AS STRING)", "CAST(value AS STRING)")
+    kafka_df = df.selectExpr("CAST(value AS STRING)")
 
     service_table = kafka_df \
         .select(psf.from_json(psf.col('value'), schema).alias("SERVICE")) \
         .select("SERVICE.*")
 
-    query = service_table \
-        .writeStream \
-        .outputMode("append") \
-        .format("console") \
-        .start()
+    service_table.printSchema()
+    #     query = service_table \
+    #             .writeStream \
+    #             .outputMode("append") \
+    #             .format("console") \
+    #             .start()
 
     # TODO select original_crime_type_name and disposition
-    #     distinct_table = service_table \
-    #                      .select(#psf.col("crime_id"),
-    #                              psf.col("original_crime_type_name"),
-    # #                              psf.to_timestamp(psf.col("call_date_time")).alias("call_date_time"),
-    # #                              psf.col("address"),
-    #                              psf.col("disposition")
-    #                             )
+    distinct_table = service_table \
+        .select(  # psf.col("crime_id"),
+        psf.to_timestamp(psf.col("call_date_time")).alias("call_date_time"),
+        psf.col("original_crime_type_name"),
+        #                              psf.col("address"),
+        psf.col("disposition")
+    )
+    distinct_table.printSchema()
 
     # count the number of original crime type
     #     agg_df = distinct_table \
@@ -68,15 +71,27 @@ def run_spark_job(spark):
     #              .groupBy(psf.window(distinct_table.call_date_time, "10 minutes", "5 minutes"),
     #                                  distinct_table.original_crime_type_name
     #                      )
-    #     agg_df = distinct_table.count()
+    agg_df = distinct_table \
+        .select(
+        distinct_table.call_date_time,
+        distinct_table.original_crime_type_name,
+        distinct_table.disposition
+    ) \
+        .withWatermark("call_date_time", "60 minutes") \
+        .groupBy(
+        psf.window(distinct_table.call_date_time, "10 minutes", "5 minutes"),
+        psf.col("original_crime_type_name")
+        #                     distinct_table.disposition
+    ) \
+        .count()
 
     # TODO Q1. Submit a screen shot of a batch ingestion of the aggregation
     # TODO write output stream
-    #     query = agg_df \
-    #             .writeStream \
-    #             .outputMode("append") \
-    #             .format("console") \
-    #             .start()
+    query = agg_df \
+        .writeStream \
+        .format("console") \
+        .outputMode("complete") \
+        .start()
 
     # TODO attach a ProgressReporter
     query.awaitTermination()
@@ -97,7 +112,6 @@ def run_spark_job(spark):
         .writeStream \
         .format("console") \
         .queryName("join") \
-        .outputMode("append") \
         .start()
 
     join_query.awaitTermination()
