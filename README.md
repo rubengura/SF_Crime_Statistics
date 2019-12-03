@@ -25,11 +25,15 @@ In order to run the application you will need to start:
 
 `/usr/bin/kafka-server-start config/server.properties`
 
-3. Kafka consumer:
+3. Insert data into topic:
+
+`python kafka_server.py`
+
+4. Kafka consumer:
 
 `kafka-console-consumer --topic "topic-name" --from-beginning --bootstrap-server localhost:9092`
 
-4. Run Spark job:
+5. Run Spark job:
 
 `spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4 --master local[*] data_stream.py`
 
