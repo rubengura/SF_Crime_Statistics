@@ -23,8 +23,25 @@ In order to run the application you will need to start:
 
 2. Kafka server:
 
-`/usr/bin kafka-server-start config/server.properties`
+`/usr/bin/kafka-server-start config/server.properties`
 
 3. Kafka consumer:
 
 `kafka-console-consumer --topic "topic-name" --from-beginning --bootstrap-server localhost:9092`
+
+4. Run Spark job:
+
+`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4 --master local[*] data_stream.py`
+
+
+### Kafka Consumer Console Output
+
+![kafka consumer output](https://github.com/rubengura/SF_Crime_Statistics/blob/master/kafka-consumer-console-output.PNG)
+
+### Progress Reporter
+
+![progress reporter](https://github.com/rubengura/SF_Crime_Statistics/blob/master/progress_report_console_output.PNG)
+
+### Count Output
+
+![count output](https://github.com/rubengura/SF_Crime_Statistics/blob/master/count_console_output.PNG)
